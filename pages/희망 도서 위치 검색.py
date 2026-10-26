@@ -1,420 +1,381 @@
-import io
 import difflib
+import html
 
-import pandas as pd
 import streamlit as st
 
 # ------------------------------------------------------------
 # 기본 설정
 # ------------------------------------------------------------
 st.set_page_config(
-    page_title="책 어디 있지? 도서관 위치 찾기",
-    page_icon="📚",
-    layout="wide",
+    page_title="희망 도서 위치 검색",
+    page_icon="📖",
+    layout="centered",
 )
 
-REQUIRED_COLS = ["제목", "저자", "분류", "청구기호", "책장", "칸", "대출상태"]
-COLS_PER_ROW = 6   # 지도에서 한 줄에 있는 책장 수
-TOTAL_SHELVES = 24  # 책장 총 개수 (6 x 4)
+MAP_COLS = 4   # 지도에서 한 줄에 있는 책장 수
+MAP_ROWS = 5   # 지도의 줄 수 (4 x 5 = 20개 책장)
+TOTAL_SHELVES = MAP_COLS * MAP_ROWS
 
-# 책장 번호 -> 구역(분류)
-ZONES = {
-    "총류": [1],
-    "철학": [2],
-    "종교": [3],
-    "사회과학": [4, 5, 6],
-    "자연과학": [7, 8, 9],
-    "기술과학": [10, 11, 12],
-    "예술": [13, 14],
-    "언어": [15, 16],
-    "문학": [17, 18, 19, 20, 21, 22],
-    "역사": [23, 24],
-}
-ZONE_COLORS = {
-    "총류": "#E0E0E0",
-    "철학": "#D1C4E9",
-    "종교": "#F8BBD0",
-    "사회과학": "#BBDEFB",
-    "자연과학": "#C8E6C9",
-    "기술과학": "#B2EBF2",
-    "예술": "#FFE0B2",
-    "언어": "#FFF9C4",
-    "문학": "#FFCCBC",
-    "역사": "#D7CCC8",
-}
-SHELF_ZONE = {}
-for _zone, _shelves in ZONES.items():
-    for _s in _shelves:
-        SHELF_ZONE[_s] = _zone
-
-# 예시 데이터 (실제 도서관 데이터가 아니라 연습용입니다)
-SAMPLE_BOOKS = [
-    ("점프 투 파이썬", "박응용", "총류", "005.13-박", 1, 1, "대출 가능"),
-    ("클린 코드", "로버트 C. 마틴", "총류", "005.1-마", 1, 2, "대출 중"),
-    ("미움받을 용기", "기시미 이치로", "철학", "181.7-기", 2, 1, "대출 가능"),
-    ("정의란 무엇인가", "마이클 샌델", "철학", "190-샌", 2, 2, "대출 가능"),
-    ("숫타니파타", "법정 옮김", "종교", "223.1-법", 3, 1, "대출 가능"),
-    ("국부론", "애덤 스미스", "사회과학", "320.9-스", 4, 1, "대출 가능"),
-    ("21세기 자본", "토마 피케티", "사회과학", "320.1-피", 4, 2, "대출 중"),
-    ("경제학 콘서트", "팀 하포드", "사회과학", "320-하", 4, 3, "대출 가능"),
-    ("공정하다는 착각", "마이클 샌델", "사회과학", "340-샌", 5, 1, "대출 가능"),
-    ("페다고지", "파울로 프레이리", "사회과학", "370-프", 6, 1, "대출 가능"),
-    ("수학의 정석", "홍성대", "자연과학", "410-홍", 7, 1, "대출 가능"),
-    ("시간의 역사", "스티븐 호킹", "자연과학", "429-호", 7, 2, "대출 가능"),
-    ("이기적 유전자", "리처드 도킨스", "자연과학", "470-도", 8, 1, "대출 가능"),
-    ("종의 기원", "찰스 다윈", "자연과학", "470-다", 8, 2, "대출 중"),
-    ("코스모스", "칼 세이건", "자연과학", "440-세", 9, 1, "대출 가능"),
-    ("내 몸 사용설명서", "마이클 로이젠", "기술과학", "510-로", 10, 1, "대출 가능"),
-    ("전자회로 입문 (예시)", "예시 저자", "기술과학", "560-예", 11, 1, "대출 가능"),
-    ("집밥 레시피 100선 (예시)", "예시 저자", "기술과학", "594-예", 12, 1, "대출 가능"),
-    ("서양미술사", "에른스트 곰브리치", "예술", "609-곰", 13, 1, "대출 가능"),
-    ("음악의 즐거움 (예시)", "예시 저자", "예술", "670-예", 13, 2, "대출 가능"),
-    ("스포츠 과학 입문 (예시)", "예시 저자", "예술", "690-예", 14, 1, "대출 가능"),
-    ("한국어 맞춤법 길라잡이 (예시)", "예시 저자", "언어", "710-예", 15, 1, "대출 가능"),
-    ("영어 회화 필수 표현 (예시)", "예시 저자", "언어", "740-예", 16, 1, "대출 가능"),
-    ("채식주의자", "한강", "문학", "813.7-한", 17, 1, "대출 가능"),
-    ("소년이 온다", "한강", "문학", "813.7-한", 17, 2, "대출 중"),
-    ("아몬드", "손원평", "문학", "813.7-손", 18, 1, "대출 가능"),
-    ("불편한 편의점", "김호연", "문학", "813.7-김", 18, 2, "대출 가능"),
-    ("82년생 김지영", "조남주", "문학", "813.7-조", 18, 3, "대출 중"),
-    ("무소유", "법정", "문학", "818-법", 19, 1, "대출 가능"),
-    ("하늘과 바람과 별과 시", "윤동주", "문학", "811.6-윤", 19, 2, "대출 가능"),
-    ("상실의 시대", "무라카미 하루키", "문학", "833.6-무", 20, 1, "대출 가능"),
-    ("인간 실격", "다자이 오사무", "문학", "833.6-다", 20, 2, "대출 가능"),
-    ("해리 포터와 마법사의 돌", "J.K. 롤링", "문학", "843-롤", 21, 1, "대출 가능"),
-    ("1984", "조지 오웰", "문학", "843-오", 21, 2, "대출 가능"),
-    ("위대한 개츠비", "F. 스콧 피츠제럴드", "문학", "843-피", 21, 3, "대출 중"),
-    ("어린 왕자", "생텍쥐페리", "문학", "863-생", 22, 1, "대출 가능"),
-    ("데미안", "헤르만 헤세", "문학", "853-헤", 22, 2, "대출 가능"),
-    ("사피엔스", "유발 하라리", "역사", "909-하", 23, 1, "대출 가능"),
-    ("총, 균, 쇠", "재레드 다이아몬드", "역사", "909-다", 23, 2, "대출 중"),
-    ("먼나라 이웃나라", "이원복", "역사", "909-이", 23, 3, "대출 가능"),
-    ("난중일기", "이순신", "역사", "911-이", 24, 1, "대출 가능"),
-    ("한국사 편지", "박은봉", "역사", "911-박", 24, 2, "대출 가능"),
+# (제목, 저자, 출판사, 발행년도, 책장번호)  ※ 연습용 예시 데이터입니다.
+BOOKS = [
+    ("데미안", "헤르만 헤세", "민음사", 2012, 12),
+    ("어린 왕자", "생텍쥐페리", "문학동네", 2015, 12),
+    ("채식주의자", "한강", "창비", 2007, 14),
+    ("소년이 온다", "한강", "창비", 2014, 14),
+    ("아몬드", "손원평", "창비", 2017, 15),
+    ("불편한 편의점", "김호연", "나무옆의자", 2021, 15),
+    ("1984", "조지 오웰", "민음사", 2003, 16),
+    ("해리 포터와 마법사의 돌", "J.K. 롤링", "문학수첩", 1999, 17),
+    ("무소유", "법정", "범우사", 1999, 18),
+    ("사피엔스", "유발 하라리", "김영사", 2015, 19),
+    ("총, 균, 쇠", "재레드 다이아몬드", "문학사상", 2005, 19),
+    ("난중일기", "이순신", "여해", 2019, 20),
+    ("코스모스", "칼 세이건", "사이언스북스", 2006, 7),
+    ("시간의 역사", "스티븐 호킹", "까치", 1998, 7),
+    ("이기적 유전자", "리처드 도킨스", "을유문화사", 2018, 8),
+    ("국부론", "애덤 스미스", "비봉출판사", 2007, 5),
+    ("정의란 무엇인가", "마이클 샌델", "와이즈베리", 2014, 3),
+    ("미움받을 용기", "기시미 이치로", "인플루엔셜", 2014, 3),
+    ("점프 투 파이썬", "박응용", "이지스퍼블리싱", 2019, 1),
+    ("클린 코드", "로버트 C. 마틴", "인사이트", 2013, 2),
 ]
 
+COVER_GRADIENTS = [
+    "linear-gradient(135deg,#A7C7E7 0%,#7DA0C4 100%)",
+    "linear-gradient(135deg,#B8D8BA 0%,#7FAF86 100%)",
+    "linear-gradient(135deg,#F2C6A0 0%,#D9976A 100%)",
+    "linear-gradient(135deg,#C9B8E8 0%,#9A86C4 100%)",
+    "linear-gradient(135deg,#F0B6BC 0%,#CF8590 100%)",
+    "linear-gradient(135deg,#9FB6CD 0%,#5F7C99 100%)",
+]
 
 # ------------------------------------------------------------
-# 데이터 처리 함수
+# 스타일 (CSS)
 # ------------------------------------------------------------
-def clean_df(df):
-    """CSV/예시 데이터를 앱에서 쓸 수 있는 형태로 정리합니다."""
-    missing = [c for c in REQUIRED_COLS if c not in df.columns]
-    if missing:
-        raise ValueError("필요한 열이 없어요: " + ", ".join(missing))
+CSS = """
+<style>
+.block-container { max-width: 520px; padding-top: 1.5rem; padding-bottom: 3rem; }
+header[data-testid="stHeader"] { background: transparent; }
 
-    df = df[REQUIRED_COLS].copy()
-    df = df.dropna(subset=["제목", "책장"])
-    df["책장"] = pd.to_numeric(df["책장"], errors="coerce")
-    df["칸"] = pd.to_numeric(df["칸"], errors="coerce").fillna(1)
-    df = df.dropna(subset=["책장"])
-    df = df[(df["책장"] >= 1) & (df["책장"] <= TOTAL_SHELVES)]
-    df["책장"] = df["책장"].astype(int)
-    df["칸"] = df["칸"].astype(int)
+.app-header { background: linear-gradient(135deg,#EAF2FB 0%,#D6E6F7 100%);
+  border-radius: 16px; padding: 18px 18px; margin-bottom: 14px;
+  display: flex; align-items: center; gap: 12px; }
+.app-header .icon { font-size: 2.2rem; }
+.app-header .t { font-size: 1.25rem; font-weight: 800; color: #2F4B6E; }
+.app-header .s { font-size: .85rem; color: #5B7391; margin-top: 2px; }
 
-    for col in ["제목", "저자", "분류", "청구기호", "대출상태"]:
-        df[col] = df[col].fillna("").astype(str).str.strip()
-    df["대출상태"] = df["대출상태"].replace("", "대출 가능")
+.guide-text { text-align: center; font-weight: 800; font-size: 1.05rem;
+  color: #2F4B6E; margin: 26px 0 10px 0; }
+.bottom-note { text-align: center; color: #7A8CA3; font-size: .85rem;
+  margin-top: 34px; line-height: 1.6; }
+.bottom-note .big { font-size: 2.6rem; display: block; margin-bottom: 4px; }
 
-    df = df.reset_index(drop=True)
-    if df.empty:
-        raise ValueError("사용할 수 있는 책 정보가 없어요. (책장은 1~24 숫자여야 해요)")
-    return df
+.result-count { font-weight: 700; color: #2F4B6E; margin: 8px 0 8px 0; }
+
+.book-row { display: flex; gap: 14px; align-items: flex-start; }
+.cover { flex: 0 0 76px; height: 108px; border-radius: 6px 10px 10px 6px;
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  color: #fff; font-weight: 800; font-size: .78rem; line-height: 1.3; padding: 6px;
+  box-shadow: 3px 3px 8px rgba(0,0,0,.18); border-left: 5px solid rgba(0,0,0,.18);
+  word-break: keep-all; }
+.cover.small { flex: 0 0 60px; height: 86px; font-size: .66rem; }
+.b-info { flex: 1; min-width: 0; }
+.b-title { font-size: 1.15rem; font-weight: 800; color: #1F2D3D; }
+.b-author { color: #5B6B7D; font-size: .9rem; margin-bottom: 6px; }
+.b-meta { font-size: .82rem; color: #6B7B8C; display: flex; gap: 14px; }
+.b-meta b { color: #2F3E50; margin-left: 4px; }
+
+.shelf-row { display: flex; align-items: center; gap: 8px; background: #F1F5FA;
+  border-radius: 10px; padding: 10px 12px; margin-top: 10px; color: #3C4F66;
+  font-weight: 600; }
+.chip { background: #DCE8F6; color: #2F4B6E; border-radius: 8px; padding: 3px 12px;
+  font-weight: 800; font-size: 1.05rem; }
+
+.section-title { font-weight: 800; color: #2F4B6E; margin: 16px 0 8px 0; }
+
+.map-wrap { display: grid; grid-template-columns: 14px 1fr 14px; gap: 6px;
+  background: #F7F9FC; border: 1px solid #D8E1EC; border-radius: 12px; padding: 12px 8px; }
+.map-side { background: #DCE3EC; border-radius: 6px; }
+.map-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 8px; }
+.cell { position: relative; background: #E3EAF3; border: 1px solid #C9D5E3;
+  border-radius: 6px; text-align: center; padding: 10px 0; font-size: .85rem;
+  font-weight: 700; color: #50627A; }
+.cell.hit { background: #F08A8A; border: 2px solid #D94F4F; color: #fff;
+  box-shadow: 0 0 0 4px rgba(240,138,138,.35); }
+.cell .pin { position: absolute; top: -16px; left: 50%; transform: translateX(-50%);
+  font-size: 1.2rem; }
+.map-foot { display: flex; justify-content: space-between; align-items: center;
+  margin-top: 8px; color: #6B7B8C; font-size: .82rem; }
+.entrance { background: #DCE3EC; border-radius: 8px; padding: 4px 16px; font-weight: 700; }
+.compass { border: 1px solid #C9D5E3; border-radius: 50%; width: 34px; height: 34px;
+  display: flex; align-items: center; justify-content: center; font-weight: 800;
+  color: #2F4B6E; background: #fff; }
+
+.where-box { border: 1px solid #D8E1EC; border-radius: 12px; padding: 12px 14px;
+  margin-top: 12px; background: #fff; }
+.where-box .w1 { font-weight: 800; color: #2F4B6E; font-size: 1.05rem; }
+.where-box .w2 { color: #5B6B7D; font-size: .88rem; margin-top: 4px; line-height: 1.6; }
+
+div.stButton > button[kind="primary"],
+div[data-testid="stFormSubmitButton"] > button[kind="primary"],
+div[data-testid="stFormSubmitButton"] > button {
+  background-color: #4A6C94; border-color: #4A6C94; color: #fff;
+  border-radius: 10px; font-weight: 700; padding: .6rem 1rem; }
+</style>
+"""
+st.markdown(CSS, unsafe_allow_html=True)
 
 
-def read_uploaded_csv(file):
-    """업로드된 CSV를 읽습니다. (UTF-8, 엑셀 CP949 모두 지원)"""
-    raw = file.getvalue()
-    for enc in ("utf-8-sig", "cp949"):
-        try:
-            return pd.read_csv(io.BytesIO(raw), encoding=enc)
-        except UnicodeDecodeError:
-            continue
-    raise ValueError("파일 인코딩을 읽을 수 없어요. CSV를 UTF-8로 저장해 주세요.")
+# ------------------------------------------------------------
+# 도우미 함수
+# ------------------------------------------------------------
+def h(text):
+    """HTML에 넣어도 안전하도록 글자를 변환합니다."""
+    return html.escape(str(text))
+
+
+def shelf_label(n):
+    return "A-" + str(n)
 
 
 def normalize(text):
     return str(text).lower().replace(" ", "")
 
 
-def esc(text):
-    """마크다운에서 달러 기호가 수식으로 바뀌는 것을 방지합니다."""
-    return str(text).replace("$", "\\$")
-
-
-def search_books(df, query, category, only_available):
-    result = df
-    if category != "전체":
-        result = result[result["분류"] == category]
-    if only_available:
-        result = result[result["대출상태"] == "대출 가능"]
-
+def search_books(query):
     tokens = [normalize(t) for t in query.split() if t.strip()]
-    if tokens and not result.empty:
-        blob = (
-            result["제목"] + " " + result["저자"] + " "
-            + result["분류"] + " " + result["청구기호"]
-        ).map(normalize)
-        mask = pd.Series(True, index=result.index)
-        for t in tokens:
-            mask &= blob.str.contains(t, regex=False)
-        result = result[mask]
-    return result
+    if not tokens:
+        return []
+    found = []
+    for idx, book in enumerate(BOOKS):
+        blob = normalize(book[0] + " " + book[1])
+        if all(t in blob for t in tokens):
+            found.append(idx)
+    return found
 
 
-# ------------------------------------------------------------
-# 지도 그리기 (HTML/CSS)
-# ------------------------------------------------------------
-MAP_CSS = (
-    "<style>"
-    ".lib-door{background:#37474F;color:#fff;text-align:center;padding:8px;"
-    "border-radius:8px;margin-bottom:10px;font-weight:600;}"
-    ".lib-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;}"
-    ".lib-shelf{position:relative;border-radius:10px;padding:12px 2px;"
-    "text-align:center;color:#222;border:3px solid transparent;min-height:72px;}"
-    ".lib-num{font-size:1.25rem;font-weight:800;}"
-    ".lib-zn{font-size:.72rem;}"
-    ".lib-hit{border:3px solid #E53935;animation:libpulse 1.4s infinite;}"
-    ".lib-badge{position:absolute;top:-10px;right:-6px;background:#E53935;"
-    "color:#fff;border-radius:50%;min-width:24px;height:24px;line-height:24px;"
-    "font-size:.8rem;font-weight:700;}"
-    ".lib-legend{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;}"
-    ".lib-chip{padding:3px 10px;border-radius:12px;color:#222;font-size:.78rem;}"
-    "@keyframes libpulse{0%{box-shadow:0 0 0 0 rgba(229,57,53,.7);}"
-    "70%{box-shadow:0 0 0 12px rgba(229,57,53,0);}"
-    "100%{box-shadow:0 0 0 0 rgba(229,57,53,0);}}"
-    "</style>"
-)
+def cover_html(idx, small=False):
+    title = BOOKS[idx][0]
+    grad = COVER_GRADIENTS[idx % len(COVER_GRADIENTS)]
+    cls = "cover small" if small else "cover"
+    return '<div class="' + cls + '" style="background:' + grad + '">' + h(title) + "</div>"
 
 
-def render_map(highlight=None):
-    """highlight: {책장번호: 표시할 글자}"""
-    highlight = highlight or {}
+def book_info_html(idx):
+    title, author, publisher, year, _shelf = BOOKS[idx]
+    return (
+        '<div class="b-info">'
+        '<div class="b-title">' + h(title) + "</div>"
+        '<div class="b-author">' + h(author) + "</div>"
+        '<div class="b-meta"><span>출판사<b>' + h(publisher) + "</b></span>"
+        "<span>발행년도<b>" + h(year) + "</b></span></div>"
+        "</div>"
+    )
+
+
+def render_header():
+    st.markdown(
+        '<div class="app-header"><div class="icon">📖</div><div>'
+        '<div class="t">희망 도서 위치 검색</div>'
+        '<div class="s">원하는 책을 더 쉽게 찾아보세요!</div>'
+        "</div></div>",
+        unsafe_allow_html=True,
+    )
+
+
+def render_map(target_shelf):
     cells = []
     for n in range(1, TOTAL_SHELVES + 1):
-        zone = SHELF_ZONE.get(n, "")
-        color = ZONE_COLORS.get(zone, "#EEEEEE")
-        css_class = "lib-shelf lib-hit" if n in highlight else "lib-shelf"
-        badge = ""
-        if n in highlight:
-            badge = '<div class="lib-badge">' + str(highlight[n]) + "</div>"
-        cells.append(
-            '<div class="' + css_class + '" style="background:' + color + '">'
-            '<div class="lib-num">' + str(n) + "</div>"
-            '<div class="lib-zn">' + zone + "</div>" + badge + "</div>"
-        )
-    legend = "".join(
-        '<span class="lib-chip" style="background:' + ZONE_COLORS[z] + '">'
-        + z + " (" + str(v[0]) + "~" + str(v[-1]) + "번)</span>"
-        for z, v in ZONES.items()
-    )
-    return (
-        MAP_CSS
-        + '<div class="lib-door">🚪 출입구 · 대출 데스크</div>'
-        + '<div class="lib-grid">' + "".join(cells) + "</div>"
-        + '<div class="lib-legend">' + legend + "</div>"
-    )
-
-
-def location_text(shelf, kan):
-    row = (shelf - 1) // COLS_PER_ROW + 1
-    col = (shelf - 1) % COLS_PER_ROW + 1
-    zone = SHELF_ZONE.get(shelf, "")
-    return (
-        f"📍 **{shelf}번 책장** ({zone} 구역) · 위에서 **{kan}번째 칸**  \n"
-        f"🚶 출입구에서 들어가 **{row}번째 줄, 왼쪽에서 {col}번째** 책장이에요."
-    )
-
-
-# ------------------------------------------------------------
-# 상태 관리 (session_state)
-# ------------------------------------------------------------
-if "books" not in st.session_state:
-    st.session_state.books = clean_df(pd.DataFrame(SAMPLE_BOOKS, columns=REQUIRED_COLS))
-if "cart" not in st.session_state:
-    st.session_state.cart = []
-
-
-def add_to_cart(book_id):
-    if book_id not in st.session_state.cart:
-        st.session_state.cart.append(book_id)
-
-
-def remove_from_cart(book_id):
-    if book_id in st.session_state.cart:
-        st.session_state.cart.remove(book_id)
-
-
-def clear_cart():
-    st.session_state.cart = []
-
-
-def show_book_card(book_id, row, key_prefix):
-    shelf = int(row["책장"])
-    kan = int(row["칸"])
-    available = row["대출상태"] == "대출 가능"
-    with st.container(border=True):
-        c1, c2, c3 = st.columns([4, 2, 2])
-        with c1:
-            st.markdown(f"**📖 {esc(row['제목'])}**")
-            st.caption(f"{esc(row['저자'])} · {esc(row['분류'])} · 청구기호 {esc(row['청구기호'])}")
-        with c2:
-            st.metric("책장 번호", f"{shelf}번")
-        with c3:
-            if available:
-                st.success("✅ 대출 가능")
-            else:
-                st.error("❌ 대출 중")
-        st.markdown(location_text(shelf, kan))
-        in_cart = book_id in st.session_state.cart
-        st.button(
-            "✔ 내 동선에 담김" if in_cart else "➕ 내 동선에 담기",
-            key=f"{key_prefix}_{book_id}",
-            disabled=in_cart,
-            on_click=add_to_cart,
-            args=(book_id,),
-        )
-
-
-# ------------------------------------------------------------
-# 화면
-# ------------------------------------------------------------
-st.title("📚 책 어디 있지?")
-st.caption("도서관에서 헤매지 마세요! 책 이름만 입력하면 책장 번호를 알려드려요.")
-
-df = st.session_state.books
-
-tab_search, tab_map, tab_route, tab_data = st.tabs(
-    ["🔎 책 찾기", "🗺️ 도서관 지도", "🧭 내 동선", "⚙️ 데이터 관리"]
-)
-
-# ---------------- 1) 책 찾기 ----------------
-with tab_search:
-    query = st.text_input(
-        "찾고 싶은 책을 입력하세요",
-        placeholder="예) 해리 포터 / 한강 / 사피엔스 / 813.7",
-    )
-    f1, f2 = st.columns(2)
-    with f1:
-        categories = ["전체"] + sorted(df["분류"].unique().tolist())
-        category = st.selectbox("분류 선택", categories)
-    with f2:
-        only_available = st.checkbox("대출 가능한 책만 보기", value=False)
-
-    if not query.strip() and category == "전체" and not only_available:
-        st.info("👆 책 제목, 저자, 청구기호 중 하나를 입력해 보세요. 분류만 골라서 둘러볼 수도 있어요.")
-    else:
-        try:
-            result = search_books(df, query, category, only_available)
-        except Exception as e:
-            result = df.iloc[0:0]
-            st.error(f"검색 중 문제가 생겼어요: {e}")
-
-        if result.empty:
-            st.warning("검색 결과가 없어요 😢")
-            if query.strip():
-                titles = df["제목"].tolist()
-                similar = difflib.get_close_matches(query.strip(), titles, n=3, cutoff=0.3)
-                if similar:
-                    st.write("혹시 이 책을 찾으셨나요? → " + " / ".join(similar))
-                st.caption("팁: 띄어쓰기를 줄이거나 저자 이름으로 검색해 보세요.")
+        if n == target_shelf:
+            cells.append(
+                '<div class="cell hit"><span class="pin">📍</span>' + shelf_label(n) + "</div>"
+            )
         else:
-            shown = result.head(20)
-            st.success(f"총 {len(result)}권을 찾았어요!" + (" (상위 20권만 표시)" if len(result) > 20 else ""))
-            highlight = {}
-            for book_id, row in shown.iterrows():
-                show_book_card(book_id, row, "s")
-                highlight[int(row["책장"])] = "📍"
-            st.subheader("🗺️ 지도에서 위치 보기")
-            st.markdown(render_map(highlight), unsafe_allow_html=True)
-
-# ---------------- 2) 도서관 지도 ----------------
-with tab_map:
-    st.subheader("도서관 전체 배치도")
-    shelf_no = st.selectbox(
-        "책장 번호를 고르면 꽂혀 있는 책을 볼 수 있어요",
-        list(range(1, TOTAL_SHELVES + 1)),
-        format_func=lambda n: f"{n}번 책장 ({SHELF_ZONE.get(n, '')})",
+            cells.append('<div class="cell">' + shelf_label(n) + "</div>")
+    return (
+        '<div class="map-wrap"><div class="map-side"></div>'
+        '<div class="map-grid">' + "".join(cells) + "</div>"
+        '<div class="map-side"></div></div>'
+        '<div class="map-foot"><span></span>'
+        '<span class="entrance">🚪 출입구</span>'
+        '<span class="compass">N↑</span></div>'
     )
-    st.markdown(render_map({shelf_no: "📍"}), unsafe_allow_html=True)
-    on_shelf = df[df["책장"] == shelf_no].sort_values("칸")
-    st.markdown(f"#### {shelf_no}번 책장에 있는 책 ({len(on_shelf)}권)")
-    if on_shelf.empty:
-        st.info("이 책장에 등록된 책이 없어요.")
-    else:
-        st.dataframe(
-            on_shelf[["칸", "제목", "저자", "청구기호", "대출상태"]],
-            hide_index=True,
+
+
+def walking_guide(shelf):
+    row_from_top = (shelf - 1) // MAP_COLS          # 0부터 시작
+    row_from_door = MAP_ROWS - row_from_top         # 출입구에서 몇 번째 줄인지
+    col = (shelf - 1) % MAP_COLS + 1
+    return (
+        "출입구에서 들어와 앞으로 걸어서 <b>" + str(row_from_door) + "번째 줄</b>, "
+        "왼쪽에서 <b>" + str(col) + "번째</b> 책장으로 이동하세요."
+    )
+
+
+# ------------------------------------------------------------
+# 화면 이동 (session_state)
+# ------------------------------------------------------------
+if "screen" not in st.session_state:
+    st.session_state.screen = "search"
+if "query" not in st.session_state:
+    st.session_state.query = ""
+if "selected" not in st.session_state:
+    st.session_state.selected = None
+
+
+def go_search():
+    st.session_state.screen = "search"
+    st.session_state.selected = None
+
+
+def go_result():
+    st.session_state.screen = "result"
+    st.session_state.selected = None
+
+
+def go_map(idx):
+    st.session_state.selected = idx
+    st.session_state.screen = "map"
+
+
+def search_form(key, default=""):
+    """검색창 + 버튼 (엔터를 쳐도 검색돼요)"""
+    with st.form(key, clear_on_submit=False):
+        q = st.text_input(
+            "책 제목",
+            value=default,
+            placeholder="🔍 책 제목을 입력하세요. (예: 데미안)",
+            label_visibility="collapsed",
+        )
+        submitted = st.form_submit_button("🔍 도서 검색", use_container_width=True)
+    if submitted:
+        if not q.strip():
+            st.warning("책 제목을 입력해 주세요.")
+        else:
+            st.session_state.query = q.strip()
+            st.session_state.screen = "result"
+            st.rerun()
+
+
+# ------------------------------------------------------------
+# 화면 ① 도서 검색
+# ------------------------------------------------------------
+def screen_search():
+    render_header()
+    st.markdown(
+        '<div class="guide-text">찾고 싶은 책의 제목을 입력하세요.</div>',
+        unsafe_allow_html=True,
+    )
+    search_form("form_search", st.session_state.query)
+    st.markdown(
+        '<div class="bottom-note"><span class="big">📖</span>'
+        "책을 찾는 일이<br>조금 더 쉬워지도록,<br>도서관이 도와드릴게요.</div>",
+        unsafe_allow_html=True,
+    )
+
+
+# ------------------------------------------------------------
+# 화면 ② 검색 결과
+# ------------------------------------------------------------
+def screen_result():
+    st.button("← 뒤로", on_click=go_search, key="back_from_result")
+    render_header()
+    search_form("form_result", st.session_state.query)
+
+    query = st.session_state.query
+    try:
+        found = search_books(query)
+    except Exception as e:
+        found = []
+        st.error("검색 중 문제가 생겼어요: " + str(e))
+
+    st.markdown(
+        '<div class="result-count">검색 결과 ' + str(len(found)) + "건</div>",
+        unsafe_allow_html=True,
+    )
+
+    if not found:
+        st.warning("'" + query + "'에 해당하는 책을 찾지 못했어요 😢")
+        titles = [b[0] for b in BOOKS]
+        similar = difflib.get_close_matches(query, titles, n=3, cutoff=0.3)
+        if similar:
+            st.info("혹시 이 책인가요? → " + " / ".join(similar))
+        st.caption("팁: 띄어쓰기를 줄이거나 저자 이름으로 검색해 보세요.")
+        return
+
+    for idx in found[:10]:
+        shelf = BOOKS[idx][4]
+        with st.container(border=True):
+            st.markdown(
+                '<div class="book-row">' + cover_html(idx) + book_info_html(idx) + "</div>"
+                '<div class="shelf-row">📚 책장 번호 <span class="chip">'
+                + shelf_label(shelf) + "</span></div>",
+                unsafe_allow_html=True,
+            )
+            st.button(
+                "📍 위치 확인",
+                key="loc_" + str(idx),
+                on_click=go_map,
+                args=(idx,),
+                type="primary",
+                use_container_width=True,
+            )
+    if len(found) > 10:
+        st.caption("결과가 많아 10권만 보여드려요. 더 자세히 검색해 보세요.")
+
+
+# ------------------------------------------------------------
+# 화면 ③ 위치 안내
+# ------------------------------------------------------------
+def screen_map():
+    idx = st.session_state.selected
+    if idx is None or idx < 0 or idx >= len(BOOKS):
+        go_search()
+        st.rerun()
+        return
+
+    st.button("← 뒤로", on_click=go_result, key="back_from_map")
+    shelf = BOOKS[idx][4]
+
+    with st.container(border=True):
+        st.markdown(
+            '<div class="book-row">' + cover_html(idx, small=True)
+            + '<div class="b-info"><div class="b-title">' + h(BOOKS[idx][0]) + "</div>"
+            '<div class="b-author">' + h(BOOKS[idx][1]) + "</div>"
+            '<div class="shelf-row" style="margin-top:4px;">📚 책장 번호 '
+            '<span class="chip">' + shelf_label(shelf) + "</span></div></div></div>",
+            unsafe_allow_html=True,
         )
 
-# ---------------- 3) 내 동선 ----------------
-with tab_route:
-    st.subheader("내 대출 동선")
-    st.caption("'책 찾기'에서 담은 책들을 책장 번호 순서로 정리해, 가장 덜 걷는 순서를 알려드려요.")
-    cart_ids = [i for i in st.session_state.cart if i in df.index]
-    if not cart_ids:
-        st.info("아직 담은 책이 없어요. '책 찾기'에서 ➕ 버튼을 눌러 담아보세요.")
+    st.markdown('<div class="section-title">📍 도서관 내부 지도</div>', unsafe_allow_html=True)
+    st.markdown(render_map(shelf), unsafe_allow_html=True)
+
+    st.markdown(
+        '<div class="where-box"><div class="w1">📍 책장 번호 : ' + shelf_label(shelf) + "</div>"
+        '<div class="w2">지도에 표시된 책장으로 이동하세요.<br>'
+        + walking_guide(shelf) + "</div></div>",
+        unsafe_allow_html=True,
+    )
+
+    st.write("")
+    st.button(
+        "🔍 다른 책 검색하기",
+        on_click=go_search,
+        key="new_search",
+        type="primary",
+        use_container_width=True,
+    )
+
+
+# ------------------------------------------------------------
+# 실행
+# ------------------------------------------------------------
+try:
+    if st.session_state.screen == "result":
+        screen_result()
+    elif st.session_state.screen == "map":
+        screen_map()
     else:
-        cart_df = df.loc[cart_ids].sort_values(["책장", "칸"])
-        shelf_order = {}
-        for s in cart_df["책장"].tolist():
-            if s not in shelf_order:
-                shelf_order[s] = len(shelf_order) + 1
-
-        route_text = "🚪 출입구 → " + " → ".join(f"{s}번 책장" for s in shelf_order)
-        st.markdown(f"### {route_text}")
-
-        for book_id, row in cart_df.iterrows():
-            with st.container(border=True):
-                a, b = st.columns([5, 1])
-                with a:
-                    status = "✅" if row["대출상태"] == "대출 가능" else "❌ 대출 중"
-                    st.markdown(
-                        f"**{shelf_order[int(row['책장'])]}번째 방문** · {int(row['책장'])}번 책장 "
-                        f"{int(row['칸'])}번째 칸 · 📖 {esc(row['제목'])} {status}"
-                    )
-                with b:
-                    st.button(
-                        "삭제",
-                        key=f"rm_{book_id}",
-                        on_click=remove_from_cart,
-                        args=(book_id,),
-                    )
-
-        st.markdown(render_map(shelf_order), unsafe_allow_html=True)
-        st.caption("지도의 빨간 숫자는 방문 순서예요.")
-        st.button("🗑️ 모두 비우기", on_click=clear_cart)
-
-# ---------------- 4) 데이터 관리 ----------------
-with tab_data:
-    st.subheader("우리 도서관 데이터로 바꾸기")
-    st.write(
-        "CSV 파일에 아래 7개 열이 있어야 해요: **제목, 저자, 분류, 청구기호, 책장(1~24), 칸, 대출상태**"
-    )
-    template = pd.DataFrame(SAMPLE_BOOKS, columns=REQUIRED_COLS).to_csv(index=False).encode("utf-8-sig")
-    st.download_button(
-        "📥 CSV 양식(예시 데이터) 내려받기",
-        data=template,
-        file_name="books_template.csv",
-        mime="text/csv",
-    )
-
-    uploaded = st.file_uploader("CSV 파일 올리기", type=["csv"])
-    if uploaded is not None:
-        if st.button("✅ 이 파일로 적용하기"):
-            try:
-                new_df = clean_df(read_uploaded_csv(uploaded))
-                st.session_state.books = new_df
-                st.session_state.cart = []
-                st.success(f"{len(new_df)}권의 책 정보를 불러왔어요!")
-                st.rerun()
-            except Exception as e:
-                st.error(f"파일을 적용할 수 없어요: {e}")
-
-    if st.button("↩️ 예시 데이터로 되돌리기"):
-        st.session_state.books = clean_df(pd.DataFrame(SAMPLE_BOOKS, columns=REQUIRED_COLS))
-        st.session_state.cart = []
-        st.rerun()
-
-    st.markdown(f"#### 현재 등록된 책 ({len(df)}권)")
-    st.dataframe(df, hide_index=True)
+        screen_search()
+except Exception as e:
+    st.error("앱에서 문제가 생겼어요. 새로고침 해주세요. (" + str(e) + ")")
