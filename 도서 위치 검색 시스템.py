@@ -1,252 +1,385 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>도서 위치 검색</title>
-    
-    <!-- Pretendard Font -->
-    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css" />
-    
-    <!-- Phosphor Icons -->
-    <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['"Pretendard Variable"', 'Pretendard', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'Roboto', 'sans-serif'],
-                    },
-                    colors: {
-                        primary: {
-                            DEFAULT: '#4A89FF',
-                            50: '#F0F5FF',
-                            100: '#E0EBFF',
-                            600: '#2A69FF',
-                        },
-                        surface: '#F8FAFC',
-                    }
-                }
-            }
-        }
-    </script>
+
+import streamlit as st
+import pandas as pd
+
+# ==========================================
+# 1. 페이지 기본 설정
+# ==========================================
+st.set_page_config(
+    page_title="스마트 도서관 길잡이",
+    page_icon="📚",
+    layout="wide"
+)
+
+# ==========================================
+# 2. CSS 스타일 설정
+# ==========================================
+st.markdown(
+    """
     <style>
-        body {
-            background-color: #ffffff;
-            color: #1E293B;
-        }
-        
-        /* Book Cover Gradients */
-        .cover-1 { background: linear-gradient(135deg, #A7C7E7 0%, #7DA0C4 100%); }
-        .cover-2 { background: linear-gradient(135deg, #1A365D 0%, #2C5282 100%); }
-        .cover-3 { background: linear-gradient(135deg, #FDE68A 0%, #FCD34D 100%); }
-        .cover-4 { background: linear-gradient(135deg, #6EE7B7 0%, #3B82F6 100%); }
+    .stApp {
+        background-color: #F8FAFD;
+    }
 
-        /* Custom soft shadows */
-        .shadow-soft {
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03), 0 1px 3px rgba(0, 0, 0, 0.02);
-        }
-        .shadow-inner-soft {
-            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
-        }
+    .cover-1 {
+        background: linear-gradient(
+            135deg,
+            #A7C7E7 0%,
+            #7DA0C4 100%
+        );
+        padding: 8px 12px;
+        border-radius: 8px;
+        color: white;
+        font-weight: bold;
+        display: inline-block;
+        margin-bottom: 10px;
+    }
+
+    .main-title {
+        color: #4A6FA5;
+        font-weight: bold;
+    }
+
+    .book-info {
+        background-color: #FFFFFF;
+        padding: 15px;
+        border-radius: 10px;
+        border: 1px solid #E2E8F0;
+    }
     </style>
-</head>
-<body class="min-h-screen antialiased flex flex-col selection:bg-primary selection:text-white">
+    """,
+    unsafe_allow_html=True
+)
 
-    <!-- Header -->
-    <header class="border-b border-gray-100 bg-white sticky top-0 z-10">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-            <!-- Logo -->
-            <div class="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">
-                <i class="ph ph-book-open text-primary text-3xl"></i>
-                <span class="text-xl font-bold tracking-tight">도서 위치 검색</span>
+# ==========================================
+# 3. 도서 데이터 생성
+# ==========================================
+@st.cache_data
+def load_books():
+    return pd.DataFrame([
+        {
+            "id": 1,
+            "title": "파이썬 머신러닝 완벽 가이드",
+            "author": "권철민",
+            "location": "2층 자연과학실",
+            "shelf": "B-04 서가 3번째 선반",
+            "call_number": "005.133-권36파"
+        },
+        {
+            "id": 2,
+            "title": "클린 코드",
+            "author": "로버트 C. 마틴",
+            "location": "2층 자연과학실",
+            "shelf": "B-02 서가 1번째 선반",
+            "call_number": "005.11-마898클"
+        },
+        {
+            "id": 3,
+            "title": "돈의 속성",
+            "author": "김승호",
+            "location": "1층 인문사회실",
+            "shelf": "A-08 서가 2번째 선반",
+            "call_number": "320.1-김897돈"
+        },
+        {
+            "id": 4,
+            "title": "코스모스",
+            "author": "칼 세이건",
+            "location": "2층 자연과학실",
+            "shelf": "C-01 서가 4번째 선반",
+            "call_number": "440.1-세04코"
+        },
+        {
+            "id": 5,
+            "title": "불편한 편의점",
+            "author": "김호연",
+            "location": "1층 문학자료실",
+            "shelf": "M-05 서가 2번째 선반",
+            "call_number": "813.7-김96불"
+        }
+    ])
+
+
+books_df = load_books()
+
+# ==========================================
+# 4. 세션 상태 초기화
+# ==========================================
+if "favorites" not in st.session_state:
+    st.session_state["favorites"] = []
+
+# ==========================================
+# 5. 메인 화면
+# ==========================================
+st.markdown(
+    '<h1 class="main-title">📚 스마트 도서관 길잡이</h1>',
+    unsafe_allow_html=True
+)
+
+st.write(
+    "원하는 책의 위치를 쉽게 찾고 "
+    "즐겨찾기에 담아 동선을 관리하세요."
+)
+
+st.caption(
+    "도서 제목이나 저자를 검색하여 "
+    "도서 위치와 청구기호를 확인할 수 있습니다."
+)
+
+# ==========================================
+# 6. 탭 설정
+# ==========================================
+tab1, tab2, tab3 = st.tabs([
+    "🔍 도서 검색 및 위치",
+    "⭐ 내 즐겨찾기 목록",
+    "🤖 AI 도우미"
+])
+
+# ==========================================
+# 첫 번째 탭 : 도서 검색
+# ==========================================
+with tab1:
+
+    st.subheader("🔍 도서 검색")
+
+    search_query = st.text_input(
+        "책 제목이나 저자를 검색하세요",
+        placeholder="예: 코스모스, 김호연",
+        key="book_search"
+    )
+
+    # 검색 기능
+    if search_query.strip():
+
+        filtered_df = books_df[
+            books_df["title"].str.contains(
+                search_query,
+                case=False,
+                na=False,
+                regex=False
+            )
+            |
+            books_df["author"].str.contains(
+                search_query,
+                case=False,
+                na=False,
+                regex=False
+            )
+        ]
+
+    else:
+        filtered_df = books_df
+
+    # 검색 결과가 없는 경우
+    if filtered_df.empty:
+
+        st.warning(
+            "검색 결과가 없습니다. "
+            "다른 검색어를 입력해 보세요."
+        )
+
+    # 검색 결과 출력
+    for _, row in filtered_df.iterrows():
+
+        st.markdown(
+            f"""
+            <div class="cover-1">
+                구역: {row['shelf'][:4]}
             </div>
-            
-            <!-- Navigation -->
-            <nav class="flex items-center gap-6 text-sm font-medium text-gray-500">
-                <a href="#" class="flex items-center gap-1.5 text-primary hover:text-primary-600 transition-colors">
-                    <i class="ph ph-house text-lg"></i>
-                    홈
-                </a>
-                <a href="#" class="flex items-center gap-1.5 hover:text-gray-900 transition-colors">
-                    <i class="ph ph-magnifying-glass text-lg"></i>
-                    검색
-                </a>
-                <a href="#" class="flex items-center gap-1.5 hover:text-gray-900 transition-colors">
-                    <i class="ph ph-user text-lg"></i>
-                    로그인
-                </a>
-            </nav>
-        </div>
-    </header>
+            """,
+            unsafe_allow_html=True
+        )
 
-    <!-- Main Content -->
-    <main class="flex-grow">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 lg:py-16">
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-10">
-                
-                <!-- Left Column: Main Search Area (70%) -->
-                <div class="lg:col-span-8 flex flex-col items-center pt-8">
-                    
-                    <!-- Hero Section -->
-                    <div class="text-center mb-10 w-full">
-                        <!-- Hero Illustration -->
-                        <div class="flex justify-center mb-6 relative">
-                            <div class="relative text-primary">
-                                <i class="ph ph-book-open-text text-7xl"></i>
-                                <!-- Decorative sparks -->
-                                <i class="ph-fill ph-sparkle absolute -top-2 -left-6 text-primary/40 text-xl"></i>
-                                <i class="ph-fill ph-sparkle absolute -bottom-2 -right-8 text-primary/40 text-2xl"></i>
-                                <i class="ph-fill ph-sparkle absolute top-2 -right-4 text-primary/30 text-sm"></i>
-                            </div>
-                        </div>
-                        
-                        <h1 class="text-4xl sm:text-5xl md:text-6xl font-extrabold text-gray-800 tracking-tight mb-4">
-                            도서 위치 <span class="text-primary">검색</span>
-                        </h1>
-                        <p class="text-lg text-gray-500 font-medium">원하는 책을 더 빠르고, 더 쉽게!</p>
-                    </div>
+        col1, col2 = st.columns([3, 1])
 
-                    <!-- Search Bar -->
-                    <div class="w-full max-w-3xl relative mb-6">
-                        <div class="relative flex items-center w-full h-16 sm:h-20 rounded-full bg-white border border-gray-200 shadow-soft overflow-hidden pl-6 pr-2 sm:pr-3 focus-within:border-primary focus-within:ring-4 focus-within:ring-primary-50 transition-all duration-300">
-                            <i class="ph ph-magnifying-glass text-gray-400 text-2xl mr-3"></i>
-                            <input 
-                                type="text" 
-                                placeholder="찾고 싶은 책 제목을 입력해보세요!" 
-                                class="w-full h-full outline-none text-lg text-gray-700 bg-transparent placeholder-gray-400"
-                            >
-                            <button class="flex items-center justify-center bg-primary hover:bg-primary-600 text-white rounded-full w-12 h-12 sm:w-14 sm:h-14 flex-shrink-0 transition-colors shadow-md">
-                                <i class="ph ph-magnifying-glass text-xl sm:text-2xl font-bold"></i>
-                            </button>
-                        </div>
-                    </div>
+        with col1:
 
-                    <!-- Tags -->
-                    <div class="flex flex-wrap justify-center gap-3 mb-16 max-w-2xl">
-                        <button class="px-5 py-2 rounded-full bg-primary-50 text-gray-600 text-sm font-medium hover:bg-primary-100 hover:text-primary transition-colors"># 인기 도서</button>
-                        <button class="px-5 py-2 rounded-full bg-primary-50 text-gray-600 text-sm font-medium hover:bg-primary-100 hover:text-primary transition-colors"># 신간 도서</button>
-                        <button class="px-5 py-2 rounded-full bg-primary-50 text-gray-600 text-sm font-medium hover:bg-primary-100 hover:text-primary transition-colors"># 베스트셀러</button>
-                        <button class="px-5 py-2 rounded-full bg-primary-50 text-gray-600 text-sm font-medium hover:bg-primary-100 hover:text-primary transition-colors"># 원하는 책 찾기</button>
-                    </div>
+            st.markdown(f"### 📖 {row['title']}")
 
-                    <!-- Features Bottom Section -->
-                    <div class="w-full bg-surface rounded-3xl p-6 sm:p-8 md:p-10">
-                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 divide-y sm:divide-y-0 sm:divide-x divide-gray-200">
-                            <!-- Feature 1 -->
-                            <div class="flex flex-col items-center text-center px-4 pt-4 sm:pt-0">
-                                <div class="w-14 h-14 rounded-full bg-primary-50 text-primary flex items-center justify-center mb-4">
-                                    <i class="ph ph-magnifying-glass text-2xl"></i>
-                                </div>
-                                <h3 class="font-bold text-gray-800 mb-2">간편한 검색</h3>
-                                <p class="text-sm text-gray-500 leading-relaxed">책 제목, 저자, 키워드로<br>쉽게 검색할 수 있어요.</p>
-                            </div>
-                            <!-- Feature 2 -->
-                            <div class="flex flex-col items-center text-center px-4 pt-4 sm:pt-0">
-                                <div class="w-14 h-14 rounded-full bg-primary-50 text-primary flex items-center justify-center mb-4">
-                                    <i class="ph ph-map-pin text-2xl"></i>
-                                </div>
-                                <h3 class="font-bold text-gray-800 mb-2">도서 위치 확인</h3>
-                                <p class="text-sm text-gray-500 leading-relaxed">찾고 있는 책의 정확한<br>위치를 알려드려요.</p>
-                            </div>
-                            <!-- Feature 3 -->
-                            <div class="flex flex-col items-center text-center px-4 pt-4 sm:pt-0">
-                                <div class="w-14 h-14 rounded-full bg-primary-50 text-primary flex items-center justify-center mb-4">
-                                    <i class="ph ph-book-open text-2xl"></i>
-                                </div>
-                                <h3 class="font-bold text-gray-800 mb-2">신간 도서 확인</h3>
-                                <p class="text-sm text-gray-500 leading-relaxed">지금 가장 인기 있는<br>새로운 책들을 만나보세요.</p>
-                            </div>
-                            <!-- Feature 4 -->
-                            <div class="flex flex-col items-center text-center px-4 pt-4 sm:pt-0">
-                                <div class="w-14 h-14 rounded-full bg-primary-50 text-primary flex items-center justify-center mb-4">
-                                    <i class="ph ph-lightning text-2xl"></i>
-                                </div>
-                                <h3 class="font-bold text-gray-800 mb-2">빠르고 정확하게</h3>
-                                <p class="text-sm text-gray-500 leading-relaxed">원하는 책을 더 빠르고,<br>더 쉽게 찾아보세요.</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                </div>
+            st.write(f"✍️ 저자: {row['author']}")
 
-                <!-- Right Column: Sidebar (30%) -->
-                <div class="lg:col-span-4 mt-10 lg:mt-0">
-                    <div class="bg-white rounded-3xl border border-gray-100 shadow-soft p-6 md:p-8 h-full">
-                        
-                        <!-- Sidebar Title -->
-                        <div class="flex items-center gap-2 mb-6">
-                            <i class="ph-fill ph-sparkle text-primary text-xl"></i>
-                            <h2 class="text-xl font-bold text-gray-800">새로 들어온 책</h2>
-                        </div>
-                        
-                        <!-- Book List -->
-                        <div class="flex flex-col">
-                            <!-- Book Item 1 -->
-                            <a href="#" class="group flex items-center py-5 border-b border-gray-50 last:border-0 hover:bg-gray-50 -mx-4 px-4 transition-colors rounded-xl">
-                                <div class="w-14 h-20 rounded-md shadow-sm overflow-hidden flex-shrink-0 cover-1 flex items-center justify-center relative">
-                                     <div class="absolute inset-0 bg-white/20"></div>
-                                     <i class="ph-fill ph-book text-white/50 text-2xl relative z-10"></i>
-                                </div>
-                                <div class="ml-4 flex-grow">
-                                    <h3 class="font-bold text-gray-800 text-[15px] mb-1 group-hover:text-primary transition-colors">불편한 편의점</h3>
-                                    <p class="text-sm text-gray-400 mb-2">김호연</p>
-                                    <span class="inline-block px-2.5 py-1 bg-primary-50 text-primary-600 text-xs font-semibold rounded-full">소설</span>
-                                </div>
-                                <i class="ph ph-caret-right text-gray-300 text-xl group-hover:text-primary transition-colors ml-2"></i>
-                            </a>
+            st.write(
+                f"📍 **위치:** {row['location']}  \n"
+                f"📌 **서가:** {row['shelf']}  \n"
+                f"🏷️ **청구기호:** `{row['call_number']}`"
+            )
 
-                            <!-- Book Item 2 -->
-                            <a href="#" class="group flex items-center py-5 border-b border-gray-50 last:border-0 hover:bg-gray-50 -mx-4 px-4 transition-colors rounded-xl">
-                                <div class="w-14 h-20 rounded-md shadow-sm overflow-hidden flex-shrink-0 cover-2 flex items-center justify-center relative">
-                                     <div class="absolute inset-0 bg-black/10"></div>
-                                     <i class="ph-fill ph-book text-white/50 text-2xl relative z-10"></i>
-                                </div>
-                                <div class="ml-4 flex-grow">
-                                    <h3 class="font-bold text-gray-800 text-[15px] mb-1 group-hover:text-primary transition-colors">달러구트 꿈 백화점</h3>
-                                    <p class="text-sm text-gray-400 mb-2">이미예</p>
-                                    <span class="inline-block px-2.5 py-1 bg-primary-50 text-primary-600 text-xs font-semibold rounded-full">소설</span>
-                                </div>
-                                <i class="ph ph-caret-right text-gray-300 text-xl group-hover:text-primary transition-colors ml-2"></i>
-                            </a>
+        with col2:
 
-                            <!-- Book Item 3 -->
-                            <a href="#" class="group flex items-center py-5 border-b border-gray-50 last:border-0 hover:bg-gray-50 -mx-4 px-4 transition-colors rounded-xl">
-                                <div class="w-14 h-20 rounded-md shadow-sm overflow-hidden flex-shrink-0 cover-3 flex items-center justify-center relative">
-                                     <i class="ph-fill ph-book text-black/20 text-2xl relative z-10"></i>
-                                </div>
-                                <div class="ml-4 flex-grow">
-                                    <h3 class="font-bold text-gray-800 text-[15px] leading-tight mb-1 group-hover:text-primary transition-colors">오늘 밤, 세계에서<br>이 사랑이 사라진다 해도</h3>
-                                    <p class="text-sm text-gray-400 mb-2">이치조 미사키</p>
-                                    <span class="inline-block px-2.5 py-1 bg-primary-50 text-primary-600 text-xs font-semibold rounded-full">소설</span>
-                                </div>
-                                <i class="ph ph-caret-right text-gray-300 text-xl group-hover:text-primary transition-colors ml-2"></i>
-                            </a>
+            # 즐겨찾기 추가 및 제거
+            if row["id"] in st.session_state["favorites"]:
 
-                            <!-- Book Item 4 -->
-                            <a href="#" class="group flex items-center py-5 border-b border-gray-50 last:border-0 hover:bg-gray-50 -mx-4 px-4 transition-colors rounded-xl">
-                                <div class="w-14 h-20 rounded-md shadow-sm overflow-hidden flex-shrink-0 cover-4 flex items-center justify-center relative">
-                                     <div class="absolute inset-0 bg-white/20"></div>
-                                     <i class="ph-fill ph-book text-white/50 text-2xl relative z-10"></i>
-                                </div>
-                                <div class="ml-4 flex-grow">
-                                    <h3 class="font-bold text-gray-800 text-[15px] leading-tight mb-1 group-hover:text-primary transition-colors">지적 대화를 위한<br>넓고 얕은 지식</h3>
-                                    <p class="text-sm text-gray-400 mb-2">채사장</p>
-                                    <span class="inline-block px-2.5 py-1 bg-gray-100 text-gray-600 text-xs font-semibold rounded-full">인문</span>
-                                </div>
-                                <i class="ph ph-caret-right text-gray-300 text-xl group-hover:text-primary transition-colors ml-2"></i>
-                            </a>
-                        </div>
-                        
-                    </div>
-                </div>
+                if st.button(
+                    "❌ 담기 취소",
+                    key=f"del_{row['id']}"
+                ):
 
-            </div>
-        </div>
-    </main>
+                    st.session_state["favorites"].remove(
+                        row["id"]
+                    )
 
-</body>
-</html>
+                    st.rerun()
+
+            else:
+
+                if st.button(
+                    "⭐ 위치 담기",
+                    key=f"add_{row['id']}"
+                ):
+
+                    st.session_state["favorites"].append(
+                        row["id"]
+                    )
+
+                    st.rerun()
+
+        st.divider()
+
+
+# ==========================================
+# 두 번째 탭 : 즐겨찾기 목록
+# ==========================================
+with tab2:
+
+    st.subheader("⭐ 내 서재")
+
+    st.write(
+        "관심 있는 책을 저장하고 "
+        "나중에 책의 위치를 확인할 수 있습니다."
+    )
+
+    fav_books = books_df[
+        books_df["id"].isin(
+            st.session_state["favorites"]
+        )
+    ]
+
+    if fav_books.empty:
+
+        st.info(
+            "아직 즐겨찾기에 담긴 책이 없습니다. "
+            "도서 검색에서 책을 담아보세요."
+        )
+
+    else:
+
+        st.dataframe(
+            fav_books[
+                [
+                    "title",
+                    "author",
+                    "location",
+                    "shelf",
+                    "call_number"
+                ]
+            ],
+            hide_index=True,
+            use_container_width=True,
+            column_config={
+                "title": "도서명",
+                "author": "저자",
+                "location": "위치(층/실)",
+                "shelf": "서가 번호",
+                "call_number": "청구기호"
+            }
+        )
+
+        st.write("")
+
+        if st.button("🗑️ 전체 삭제"):
+
+            st.session_state["favorites"] = []
+
+            st.rerun()
+
+
+# ==========================================
+# 세 번째 탭 : AI 도우미
+# ==========================================
+with tab3:
+
+    st.subheader("🤖 도서관 AI 사서")
+
+    st.write(
+        "청구기호의 의미나 도서관 이용 방법을 "
+        "AI 사서에게 질문해 보세요."
+    )
+
+    # API 키 가져오기
+    api_key = st.secrets.get(
+        "GEMINI_API_KEY",
+        ""
+    )
+
+    # 질문 입력
+    q = st.text_input(
+        "질문을 입력하세요.",
+        placeholder="예: 청구기호는 무엇인가요?",
+        key="ai_question"
+    )
+
+    # 질문하기 버튼
+    if st.button("💬 질문하기"):
+
+        if not q.strip():
+
+            st.warning("질문을 입력해 주세요.")
+
+        elif not api_key:
+
+            st.error(
+                "Streamlit Secrets에 "
+                "GEMINI_API_KEY가 등록되지 않았습니다."
+            )
+
+        else:
+
+            try:
+
+                from google import genai
+
+                # Gemini API 설정
+                client = genai.Client(
+                    api_key=api_key
+                )
+
+                # AI 답변 생성
+                with st.spinner(
+                    "AI 사서가 답변을 작성하고 있습니다..."
+                ):
+
+                    response = client.models.generate_content(
+                        model="gemini-2.5-flash-lite",
+                        contents=q
+                    )
+
+                    st.markdown(
+                        "### 💡 AI 사서의 답변"
+                    )
+
+                    if response.text:
+
+                        st.write(response.text)
+
+                    else:
+
+                        st.warning(
+                            "답변을 생성하지 못했습니다. "
+                            "다시 질문해 주세요."
+                        )
+
+            except Exception as e:
+
+                st.error(
+                    f"AI 답변 생성 중 오류가 발생했습니다: {e}"
+                )
+
+# ==========================================
+# 7. 하단 안내
+# ==========================================
+st.divider()
+
+st.caption(
+    "📚 스마트 도서관 길잡이 | "
+    "도서 위치 검색 및 즐겨찾기 서비스"
+)
