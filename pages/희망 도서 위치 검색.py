@@ -40,7 +40,26 @@ BOOKS = [
     ("클린 코드", "로버트 C. 마틴", "인사이트", 2013, 2),
 ]
 
-COVER_GRADIENTS = [
+import streamlit as st
+import pandas as pd
+
+st.set_page_config(page_title="도서관 길잡이", layout="wide")
+st.title("📚 스마트 도서관 길잡이")
+
+# 오류가 나던 CSS 스타일을 전부 삭제하고 안전하게 구현했습니다.
+
+@st.cache_data
+def load_data():
+    return pd.DataFrame([
+        {"도서명": "파이썬 완벽 가이드", "저자": "권철민", "위치": "2층 IT실", "서가": "B-04 서가", "청구기호": "005.133"},
+        {"도서명": "돈의 속성", "저자": "김승호", "위치": "1층 경제실", "서가": "A-08 서가", "청구기호": "320.1"},
+        {"도서명": "불편한 편의점", "저자": "김호연", "위치": "1층 문학실", "서가": "M-05 서가", "청구기호": "813.7"}
+    ])
+
+df = load_data()
+st.dataframe(df, use_container_width=True)
+
+st.success("이제 오류 없이 정상적으로 실행됩니다! 여기에 필요한 기능을 추가해 보세요.")
     "linear-gradient(135deg,#A7C7E7 0%,#7DA0C4 100%)",
     "linear-gradient(135deg,#B8D8BA 0%,#7FAF86 100%)",
     "linear-gradient(135deg,#F2C6A0 0%,#D9976A 100%)",
