@@ -1,1 +1,3 @@
-# 8_2
+
+streamlit
+plotly
