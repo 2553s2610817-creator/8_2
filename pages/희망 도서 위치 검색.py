@@ -46,52 +46,128 @@ BOOKS = [
 QUICK_PICKS = ["데미안", "사피엔스", "클린 코드", "어린 왕자"]
 
 # ------------------------------------------------------------------
-# 2. 스타일 (이미지처럼 네이비 + 연한 파랑 모바일 카드 디자인)
+# 2. 스타일 (민트-블루 그라데이션 배경 + 화이트 카드 + 그린 포인트)
 # ------------------------------------------------------------------
 CSS = """
 <style>
-.stApp { background: #E9F0F8; }
-.block-container { max-width: 460px; padding-top: 1.2rem; padding-bottom: 2rem; }
-footer { visibility: hidden; }
-.app-top { background: linear-gradient(135deg, #DDE9F6, #F4F8FC); border: 2px solid #34476B;
-  border-radius: 18px; padding: 16px 18px; margin-bottom: 14px; }
-.app-top .t { font-size: 1.25rem; font-weight: 800; color: #1F2D4D; }
-.app-top .s { font-size: 0.85rem; color: #4A5C7C; margin-top: 2px; }
-.page-title { text-align: center; font-weight: 800; color: #1F2D4D; font-size: 1.05rem; margin: 6px 0 10px 0; }
-.step-badge { display: inline-block; background: #34476B; color: #fff; border-radius: 999px;
-  padding: 2px 12px; font-size: 0.78rem; font-weight: 700; margin-bottom: 6px; }
-.card { background: #fff; border: 1px solid #C9D6E8; border-radius: 14px; padding: 14px; margin-bottom: 8px; }
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
+
+:root {
+  --mint: #1FD6A4;
+  --green: #17C37B;
+  --teal: #12B5B0;
+  --sky: #2E9BE6;
+  --ink: #2F3E52;
+  --sub: #8A98A8;
+  --line: #E4ECF2;
+  --soft: #F3F8FB;
+}
+
+html, body, .stApp, .stApp * { font-family: 'Noto Sans KR', sans-serif; }
+
+/* 배경: 가운데는 민트, 가장자리는 파랑 */
+.stApp {
+  background:
+    radial-gradient(ellipse at 50% 38%, #27E8B0 0%, #1ED6B0 28%, #1FB9D8 62%, #2A8FE0 100%);
+  background-attachment: fixed;
+}
+header[data-testid="stHeader"] { background: transparent; }
+footer, #MainMenu { visibility: hidden; }
+
+/* 폰 화면처럼 보이는 흰색 패널 */
+.block-container {
+  max-width: 400px;
+  background: #fff;
+  border-radius: 22px;
+  padding: 1.6rem 1.4rem 1.8rem 1.4rem !important;
+  margin-top: 1.2rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 18px 50px rgba(9, 70, 110, 0.28);
+}
+
+/* 상단 로고 */
+.app-top { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 22px; }
+.app-top .logo { width: 22px; height: 22px; border-radius: 7px;
+  background: linear-gradient(135deg, var(--mint), var(--sky));
+  display: flex; align-items: center; justify-content: center; font-size: 0.7rem; color: #fff; }
+.app-top .name { font-size: 0.72rem; font-weight: 500; letter-spacing: 0.18em; color: var(--ink); }
+
+/* 제목 */
+.hero { text-align: center; margin: 6px 0 18px 0; }
+.hero .h { font-size: 1.35rem; font-weight: 300; color: var(--ink); line-height: 1.4; }
+.hero .p { font-size: 0.78rem; color: var(--sub); margin-top: 6px; font-weight: 300; }
+.page-title { text-align: center; font-weight: 400; color: var(--ink); font-size: 1.15rem; margin: 4px 0 14px 0; }
+
+/* 입력창 */
+div[data-testid="stForm"] { border: none; padding: 0; }
+div[data-baseweb="input"], div[data-baseweb="base-input"] {
+  background: var(--soft) !important; border-radius: 12px !important; border: 1px solid var(--line) !important; }
+div[data-baseweb="input"]:focus-within { border-color: var(--mint) !important; box-shadow: 0 0 0 3px rgba(31,214,164,0.18); }
+input { color: var(--ink) !important; font-weight: 400; }
+
+/* 카드 */
+.card { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 14px;
+  margin-bottom: 8px; box-shadow: 0 6px 18px rgba(30, 90, 130, 0.08); }
 .book-row { display: flex; gap: 14px; align-items: center; }
-.cover { width: 62px; min-width: 62px; height: 88px; border-radius: 5px; color: #fff; font-weight: 700;
-  font-size: 0.72rem; display: flex; align-items: center; justify-content: center; text-align: center;
-  padding: 4px; line-height: 1.2; box-shadow: 2px 3px 6px rgba(0,0,0,0.25); word-break: keep-all; }
-.b-title { font-size: 1.15rem; font-weight: 800; color: #1F2D4D; }
-.b-author { color: #5A6B88; font-size: 0.88rem; margin-bottom: 4px; }
-.b-meta { font-size: 0.8rem; color: #5A6B88; }
-.ok { color: #2E7D32; font-weight: 700; }
-.no { color: #C62828; font-weight: 700; }
-.shelf-box { display: flex; align-items: center; justify-content: space-between; background: #EEF3FA;
-  border-radius: 10px; padding: 10px 14px; margin-top: 12px; }
-.shelf-box .l { color: #34476B; font-weight: 700; font-size: 0.9rem; }
-.shelf-box .v { background: #DCE7F6; color: #1F2D4D; font-weight: 800; border-radius: 8px; padding: 3px 14px; }
-.map-title { font-weight: 800; color: #1F2D4D; margin: 12px 0 6px 0; }
-.map-wrap { display: flex; gap: 6px; background: #fff; border: 1px solid #C9D6E8; border-radius: 12px; padding: 10px; }
-.side { width: 12px; background: #D3DFEE; border-radius: 4px; }
+.cover { width: 58px; min-width: 58px; height: 82px; border-radius: 6px; color: #fff; font-weight: 500;
+  font-size: 0.7rem; display: flex; align-items: center; justify-content: center; text-align: center;
+  padding: 4px; line-height: 1.2; box-shadow: 0 6px 12px rgba(0,0,0,0.18); word-break: keep-all; }
+.b-title { font-size: 1.05rem; font-weight: 500; color: var(--ink); }
+.b-author { color: var(--sub); font-size: 0.82rem; margin-bottom: 6px; font-weight: 300; }
+.b-meta { font-size: 0.78rem; color: var(--sub); line-height: 1.6; font-weight: 300; }
+.ok { color: var(--green); font-weight: 500; }
+.no { color: #F0626B; font-weight: 500; }
+
+/* 책장 번호 */
+.shelf-box { display: flex; align-items: center; justify-content: space-between; background: var(--soft);
+  border-radius: 10px; padding: 9px 14px; margin-top: 12px; }
+.shelf-box .l { color: var(--sub); font-weight: 400; font-size: 0.82rem; }
+.shelf-box .v { background: linear-gradient(135deg, var(--mint), var(--green)); color: #fff; font-weight: 500;
+  border-radius: 999px; padding: 3px 16px; font-size: 0.85rem; box-shadow: 0 4px 10px rgba(23,195,123,0.3); }
+
+/* 지도 */
+.map-title { font-weight: 400; color: var(--ink); margin: 14px 0 8px 0; font-size: 0.95rem; }
+.map-wrap { display: flex; gap: 6px; background: var(--soft); border-radius: 14px; padding: 12px; }
+.side { width: 8px; background: #DCE8F0; border-radius: 4px; }
 .grid { flex: 1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-.cell { background: #E8EEF7; border: 1px solid #B9C8DE; border-radius: 6px; text-align: center;
-  padding: 14px 0; font-size: 0.8rem; color: #34476B; font-weight: 600; position: relative; }
-.cell.target { background: #EF8A84; border: 2px solid #C94B43; color: #fff; font-weight: 800; }
-.cell .pin { position: absolute; top: -13px; left: 50%; transform: translateX(-50%); font-size: 1.2rem; }
-.entrance { text-align: center; color: #5A6B88; font-size: 0.8rem; margin-top: 8px; }
-.compass { float: right; font-size: 0.75rem; color: #34476B; font-weight: 700; }
-.where-box { background: #fff; border: 1px solid #C9D6E8; border-radius: 12px; padding: 12px 14px; margin-top: 10px; }
-.where-box .big { font-size: 1.05rem; font-weight: 800; color: #1F2D4D; }
-.where-box .sm { font-size: 0.85rem; color: #5A6B88; margin-top: 2px; }
-.steps { margin: 8px 0 0 0; padding-left: 18px; color: #34476B; font-size: 0.88rem; }
+.cell { background: #fff; border: 1px solid var(--line); border-radius: 10px; text-align: center;
+  padding: 14px 0; font-size: 0.75rem; color: var(--sub); font-weight: 400; position: relative;
+  box-shadow: 0 3px 8px rgba(30, 90, 130, 0.06); }
+.cell.target { background: linear-gradient(135deg, var(--mint), var(--green)); border: none; color: #fff;
+  font-weight: 500; box-shadow: 0 8px 18px rgba(23,195,123,0.45); }
+.cell .pin { position: absolute; top: -14px; left: 50%; transform: translateX(-50%); font-size: 1.1rem; }
+.entrance { text-align: center; color: var(--sub); font-size: 0.75rem; margin-top: 10px; font-weight: 300; }
+.compass { float: right; font-size: 0.72rem; color: var(--teal); font-weight: 500; }
+
+/* 안내 */
+.where-box { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; margin-top: 12px;
+  box-shadow: 0 6px 18px rgba(30, 90, 130, 0.06); }
+.where-box .big { font-size: 1rem; font-weight: 500; color: var(--ink); }
+.where-box .sm { font-size: 0.8rem; color: var(--sub); margin-top: 3px; font-weight: 300; }
+.steps { margin: 10px 0 0 0; padding-left: 18px; color: var(--ink); font-size: 0.85rem; line-height: 1.8; font-weight: 300; }
+.steps li::marker { color: var(--green); font-weight: 500; }
+
+/* 기본 버튼: 그린 그라데이션 알약형 */
 div.stButton > button, div[data-testid="stFormSubmitButton"] > button {
-  width: 100%; background: #4C6A9C; color: #fff; border: none; border-radius: 10px;
-  font-weight: 700; padding: 0.55rem 0; }
-div.stButton > button:hover, div[data-testid="stFormSubmitButton"] > button:hover { background: #34476B; color: #fff; }
+  width: 100%; background: linear-gradient(90deg, var(--mint), var(--green)); color: #fff; border: none;
+  border-radius: 999px; font-weight: 500; padding: 0.6rem 0; letter-spacing: 0.02em;
+  box-shadow: 0 8px 18px rgba(23,195,123,0.35); transition: transform .15s, box-shadow .15s; }
+div.stButton > button:hover, div[data-testid="stFormSubmitButton"] > button:hover {
+  background: linear-gradient(90deg, #19cf9c, #12b36e); color: #fff; border: none;
+  transform: translateY(-1px); box-shadow: 0 10px 22px rgba(23,195,123,0.45); }
+div.stButton > button:active, div[data-testid="stFormSubmitButton"] > button:active { transform: translateY(0); color: #fff; }
+
+/* 추천 검색어 / 뒤로 버튼: 흰색 + 연한 테두리 */
+div[class*="st-key-quick_"] button, div[class*="st-key-back"] button {
+  background: #fff !important; color: var(--ink) !important; border: 1px solid var(--line) !important;
+  box-shadow: none !important; font-weight: 400 !important; }
+div[class*="st-key-quick_"] button:hover, div[class*="st-key-back"] button:hover {
+  border-color: var(--mint) !important; color: var(--green) !important; background: #F4FFFB !important; transform: none; }
+div[class*="st-key-back"] button { width: auto; padding: 0.3rem 1rem; font-size: 0.82rem; }
+
+/* 알림 박스 */
+div[data-testid="stAlert"] { border-radius: 12px; border: none; background: var(--soft); color: var(--ink); }
+div[data-testid="stCaptionContainer"] { color: var(--sub); }
 </style>
 """
 st.markdown(CSS, unsafe_allow_html=True)
@@ -202,16 +278,23 @@ def map_html(target):
     )
 
 
+def top_logo():
+    st.markdown(
+        '<div class="app-top"><div class="logo">📖</div><div class="name">BOOK GUIDE</div></div>',
+        unsafe_allow_html=True,
+    )
+
+
 # ------------------------------------------------------------------
 # 4. 화면 ① 도서 검색
 # ------------------------------------------------------------------
 def page_search():
+    top_logo()
     st.markdown(
-        '<div class="app-top"><div class="t">📖 희망 도서 위치 검색</div>'
-        '<div class="s">원하는 책을 더 쉽게 찾아보세요!</div></div>',
+        '<div class="hero"><div class="h">찾고 싶은 책의<br>제목을 입력하세요</div>'
+        '<div class="p">원하는 책을 더 쉽게 찾아보세요</div></div>',
         unsafe_allow_html=True,
     )
-    st.markdown('<div class="page-title">찾고 싶은 책의 제목을 입력하세요.</div>', unsafe_allow_html=True)
 
     with st.form("search_form"):
         q = st.text_input(
@@ -234,7 +317,7 @@ def page_search():
         with cols[i % 2]:
             st.button(title, key="quick_%d" % i, on_click=quick_search, args=(title,))
 
-    st.info("책을 찾느라 헤매지 마세요. 책 제목(또는 저자)만 입력하면 책장 번호와 지도를 알려드려요.")
+    st.info("책 제목(또는 저자)만 입력하면 책장 번호와 지도를 알려드려요.")
 
 
 # ------------------------------------------------------------------
@@ -242,7 +325,7 @@ def page_search():
 # ------------------------------------------------------------------
 def page_results():
     st.button("← 뒤로", key="back1", on_click=go_page, args=("search",))
-    st.markdown('<div class="page-title">희망 도서 위치 검색</div>', unsafe_allow_html=True)
+    st.markdown('<div class="page-title">검색 결과</div>', unsafe_allow_html=True)
     st.markdown("🔎 **%s**" % esc(st.session_state.query))
 
     results = search_books(st.session_state.query)
